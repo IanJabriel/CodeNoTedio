@@ -1,70 +1,86 @@
 import random
-import requests
 from colorama import Fore, Style, init
+from unidecode import unidecode
+import unicodedata
 
 init(autoreset=True)
 
 class TermoooClassico:
     def __init__(self):
-        self.palavras = self.lerPalavrasOnline()
-        
+        self.palavras, self.word_map = self.lerWordList()
+
         if not self.palavras:
             raise ValueError("A lista de palavras está vazia ou não pôde ser carregada.")
 
-        self.palavraSecreta = random.choice(self.palavras)
+        self.chaveSecreta = random.choice(list(self.word_map.keys()))
+        self.palavraSecreta = self.word_map[self.chaveSecreta]
         self.maxTentativas = 6
         self.tentativas = []
 
-    def lerPalavrasOnline(self):
-        url = "https://gist.githubusercontent.com/vncsmnl/25e7c165da276405af8ca4e1c8e17806/raw/bd238615c9089721a16418289589961490d0cf65/wordlist"
+    def lerWordList(self):
+        word_map = {}
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            palavras = response.text.splitlines()
-            return [p.strip().upper() for p in palavras if len(p.strip()) == 5]
-        except requests.RequestException as e:
-            print("Erro ao acessar a wordlist online:", e)
-            return []
+            with open("wordlist_5letters.txt", encoding="utf-8") as wl:
+                for linha in wl:
+                    palavra = linha.strip().upper()
+                    chave = unidecode(palavra)
+                    word_map[chave] = palavra
+        except FileNotFoundError:
+            print("Arquivo 'wordlist_5letters.txt' não encontrado.")
+            return [], {}
+
+        return list(word_map.values()), word_map
+
+    def remover_acentos(self,palavra):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', palavra)
+            if unicodedata.category(c) != 'Mn'
+        )
 
     def compararPalavra(self, palavraDigitada):
-        resultado = []
-        palavraSecreta_temp = list(self.palavraSecreta)
+        palavraSemAcento = self.remover_acentos(palavraDigitada.upper())
+        segredoSemAcento = self.remover_acentos(self.palavraSecreta)
+        segredoTemp = list(segredoSemAcento)
 
-        for i in range(len(palavraDigitada)):
-            if palavraDigitada[i] == self.palavraSecreta[i].upper():
-                resultado.append(Fore.GREEN + palavraDigitada[i] + Style.RESET_ALL)
-                palavraSecreta_temp[i] = None 
-            else:
-                resultado.append(None)
+        resultado = [""] * len(palavraDigitada)
 
-        for i in range(len(palavraDigitada)):
-            if resultado[i] is not None:
+        for i in range(len(palavraSemAcento)):
+            if palavraSemAcento[i] == segredoSemAcento[i]:
+                resultado[i] = Fore.GREEN + palavraDigitada[i] + Style.RESET_ALL
+                segredoTemp[i] = None 
+
+        for i in range(len(palavraSemAcento)):
+            if resultado[i]:
                 continue
-            if palavraDigitada[i] in palavraSecreta_temp:
+            if palavraSemAcento[i] in segredoTemp:
                 resultado[i] = Fore.YELLOW + palavraDigitada[i] + Style.RESET_ALL
-                palavraSecreta_temp[palavraSecreta_temp.index(palavraDigitada[i])] = None
+                # Remove a letra usada para não contar duplicado
+                segredoTemp[segredoTemp.index(palavraSemAcento[i])] = None
             else:
+                # Letra não está na palavra (cinza)
                 resultado[i] = Fore.LIGHTBLACK_EX + palavraDigitada[i] + Style.RESET_ALL
 
-        return "".join(resultado)
+        return ''.join(resultado)
 
     def jogar(self):
-        print("==========Termooo genérico==========")
+        print("========== Termooo Clássico ==========")
         print(f"Adivinhe a palavra de {len(self.palavraSecreta)} letras. Você tem {self.maxTentativas} tentativas.\n")
 
         while len(self.tentativas) < self.maxTentativas:
             print(f"Tentativa {len(self.tentativas)+1} de {self.maxTentativas}")
             palavraDigitada = input("Digite a palavra: ").strip().upper()
+            palavraChave = unidecode(palavraDigitada)
 
             if len(palavraDigitada) != len(self.palavraSecreta):
                 print(f"A palavra deve ter exatamente {len(self.palavraSecreta)} letras.\n")
                 continue
 
-            if palavraDigitada not in self.palavras:
+            if palavraChave not in self.word_map:
                 print("Palavra inválida. Tente novamente.\n")
                 continue
 
-            resultado = self.compararPalavra(palavraDigitada)
+            palavraComAcento = self.word_map[palavraChave]
+            resultado = self.compararPalavra(palavraComAcento)
             self.tentativas.append(resultado)
 
             print("\nTentativas até agora:")
@@ -72,7 +88,7 @@ class TermoooClassico:
                 print(linha)
             print()
 
-            if palavraDigitada == self.palavraSecreta:
+            if palavraComAcento == self.palavraSecreta:
                 print("Parabéns! Você acertou a palavra!\n")
                 break
         else:

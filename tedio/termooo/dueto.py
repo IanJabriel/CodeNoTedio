@@ -1,12 +1,13 @@
 import random
-import requests
+import unicodedata
 from colorama import Fore, Style, init
+from unidecode import unidecode
 
 init(autoreset=True)
 
 class TermoooDueto:
     def __init__(self):
-        self.palavras = self.lerPalavrasOnline()
+        self.palavras, self.word_map = self.lerWordList()
         if not self.palavras:
             raise ValueError("A lista de palavras está vazia ou não pôde ser carregada.")
 
@@ -17,38 +18,48 @@ class TermoooDueto:
         self.tentativasPrimeiraPalavra = []
         self.tentativasSegundaPalavra = []
 
-    def lerPalavrasOnline(self):
-        url = "https://gist.githubusercontent.com/vncsmnl/25e7c165da276405af8ca4e1c8e17806/raw/bd238615c9089721a16418289589961490d0cf65/wordlist"
+    def lerWordList(self):
+        word_map = {}
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            palavras = response.text.splitlines()
-            return [p.strip().upper() for p in palavras if len(p.strip()) == 5]
-        except requests.RequestException as e:
-            print("Erro ao acessar a wordlist online:", e)
-            return []
+            with open("wordlist_5letters.txt", encoding="utf-8") as wl:
+                for linha in wl:
+                    palavra = linha.strip().upper()
+                    chave = unidecode(palavra)
+                    word_map[chave] = palavra
+        except FileNotFoundError:
+            print("Arquivo 'wordlist_5letters.txt' não encontrado.")
+            return [], {}
 
-    def compararPalavra(self, tentativa, palavraSecreta):
-        resultado = []
-        palavra_temp = list(palavraSecreta)
+        return list(word_map.values()), word_map
 
-        for i in range(len(tentativa)):
-            if tentativa[i] == palavraSecreta[i]:
-                resultado.append(Fore.GREEN + tentativa[i] + Style.RESET_ALL)
-                palavra_temp[i] = None
-            else:
-                resultado.append(None)
+    def remover_acentos(self,palavra):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', palavra)
+            if unicodedata.category(c) != 'Mn'
+        )
 
-        for i in range(len(tentativa)):
-            if resultado[i] is not None:
+    def compararPalavra(self, tentativa_com_acento, secreta_com_acento):
+        tentativa_sem_acento = self.remover_acentos(tentativa_com_acento)
+        secreta_sem_acento = self.remover_acentos(secreta_com_acento)
+        secreta_temp = list(secreta_sem_acento)
+
+        resultado = [""] * len(tentativa_com_acento)
+
+        for i in range(len(tentativa_sem_acento)):
+            if tentativa_sem_acento[i] == secreta_sem_acento[i]:
+                resultado[i] = Fore.GREEN + tentativa_com_acento[i] + Style.RESET_ALL
+                secreta_temp[i] = None
+
+        for i in range(len(tentativa_sem_acento)):
+            if resultado[i]:
                 continue
-            if tentativa[i] in palavra_temp:
-                resultado[i] = Fore.YELLOW + tentativa[i] + Style.RESET_ALL
-                palavra_temp[palavra_temp.index(tentativa[i])] = None
+            if tentativa_sem_acento[i] in secreta_temp:
+                resultado[i] = Fore.YELLOW + tentativa_com_acento[i] + Style.RESET_ALL
+                secreta_temp[secreta_temp.index(tentativa_sem_acento[i])] = None
             else:
-                resultado[i] = Fore.LIGHTBLACK_EX + tentativa[i] + Style.RESET_ALL
+                resultado[i] = Fore.LIGHTBLACK_EX + tentativa_com_acento[i] + Style.RESET_ALL
 
-        return "".join(resultado)
+        return ''.join(resultado)
 
     def jogar(self):
         print("========== Termooo Dueto ==========")
@@ -57,23 +68,26 @@ class TermoooDueto:
 
         while len(self.tentativasPrimeiraPalavra) < self.maxTentativas:
             print(f"Tentativa {len(self.tentativasPrimeiraPalavra) + 1} de {self.maxTentativas}")
-            tentativa = input("Digite a palavra: ").strip().upper()
+            tentativa_input = input("Digite a palavra: ").strip().upper()
+            tentativa_chave = unidecode(tentativa_input)
 
-            if len(tentativa) != len(self.palavrasSecretas[0]):
-                print(f"A palavra deve ter exatamente {len(self.palavrasSecretas[0])} letras.\n")
+            if len(tentativa_input) != 5:
+                print("A palavra deve ter exatamente 5 letras.\n")
                 continue
 
-            if tentativa not in self.palavras:
+            if tentativa_chave not in self.word_map:
                 print("Palavra inválida. Tente novamente.\n")
                 continue
 
+            tentativa_com_acento = self.word_map[tentativa_chave]
+
             if not self.acertouPalavra1:
-                resultado1 = self.compararPalavra(tentativa, self.palavrasSecretas[0])
+                resultado1 = self.compararPalavra(tentativa_com_acento, self.palavrasSecretas[0])
             else:
                 resultado1 = Fore.GREEN + self.palavrasSecretas[0] + Style.RESET_ALL
 
             if not self.acertouPalavra2:
-                resultado2 = self.compararPalavra(tentativa, self.palavrasSecretas[1])
+                resultado2 = self.compararPalavra(tentativa_com_acento, self.palavrasSecretas[1])
             else:
                 resultado2 = Fore.GREEN + self.palavrasSecretas[1] + Style.RESET_ALL
 
@@ -85,11 +99,11 @@ class TermoooDueto:
                 print(f"Palavra 1: {r1}   Palavra 2: {r2}")
             print()
 
-            if tentativa == self.palavrasSecretas[0] and not self.acertouPalavra1:
+            if tentativa_com_acento == self.palavrasSecretas[0] and not self.acertouPalavra1:
                 print("Você acertou a Palavra 1!")
                 self.acertouPalavra1 = True
 
-            if tentativa == self.palavrasSecretas[1] and not self.acertouPalavra2:
+            if tentativa_com_acento == self.palavrasSecretas[1] and not self.acertouPalavra2:
                 print("Você acertou a Palavra 2!")
                 self.acertouPalavra2 = True
 
