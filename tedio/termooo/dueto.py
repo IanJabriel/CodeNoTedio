@@ -2,15 +2,14 @@ import random
 import unicodedata
 from colorama import Fore, Style, init
 from unidecode import unidecode
+from classico import TermoooClassico
 
 init(autoreset=True)
 
-class TermoooDueto:
-    def __init__(self):
-        self.palavras, self.word_map = self.lerWordList()
-        if not self.palavras:
-            raise ValueError("A lista de palavras está vazia ou não pôde ser carregada.")
 
+class TermoooDueto(TermoooClassico):
+    def __init__(self):
+        super().__init__()
         self.palavrasSecretas = random.sample(self.palavras, 2)
         self.acertouPalavra1 = False
         self.acertouPalavra2 = False
@@ -18,48 +17,20 @@ class TermoooDueto:
         self.tentativasPrimeiraPalavra = []
         self.tentativasSegundaPalavra = []
 
-    def lerWordList(self):
-        word_map = {}
-        try:
-            with open("wordlist_5letters.txt", encoding="utf-8") as wl:
-                for linha in wl:
-                    palavra = linha.strip().upper()
-                    chave = unidecode(palavra)
-                    word_map[chave] = palavra
-        except FileNotFoundError:
-            print("Arquivo 'wordlist_5letters.txt' não encontrado.")
-            return [], {}
-
-        return list(word_map.values()), word_map
-
-    def remover_acentos(self,palavra):
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', palavra)
-            if unicodedata.category(c) != 'Mn'
-        )
-
     def compararPalavra(self, tentativa_com_acento, secreta_com_acento):
-        tentativa_sem_acento = self.remover_acentos(tentativa_com_acento)
-        secreta_sem_acento = self.remover_acentos(secreta_com_acento)
-        secreta_temp = list(secreta_sem_acento)
-
-        resultado = [""] * len(tentativa_com_acento)
-
-        for i in range(len(tentativa_sem_acento)):
-            if tentativa_sem_acento[i] == secreta_sem_acento[i]:
-                resultado[i] = Fore.GREEN + tentativa_com_acento[i] + Style.RESET_ALL
-                secreta_temp[i] = None
-
-        for i in range(len(tentativa_sem_acento)):
-            if resultado[i]:
-                continue
-            if tentativa_sem_acento[i] in secreta_temp:
-                resultado[i] = Fore.YELLOW + tentativa_com_acento[i] + Style.RESET_ALL
-                secreta_temp[secreta_temp.index(tentativa_sem_acento[i])] = None
+        """Gera string formatada com Colorama para o Terminal."""
+        dados = self.avaliar_palavra_dados(tentativa_com_acento, secreta_com_acento)
+        resultado_str = ""
+        for item in dados:
+            letra = item["letra"]
+            estado = item["estado"]
+            if estado == "green":
+                resultado_str += Fore.GREEN + letra + Style.RESET_ALL
+            elif estado == "yellow":
+                resultado_str += Fore.YELLOW + letra + Style.RESET_ALL
             else:
-                resultado[i] = Fore.LIGHTBLACK_EX + tentativa_com_acento[i] + Style.RESET_ALL
-
-        return ''.join(resultado)
+                resultado_str += Fore.LIGHTBLACK_EX + letra + Style.RESET_ALL
+        return resultado_str
 
     def jogar(self):
         print("========== Termooo Dueto ==========")
@@ -69,11 +40,16 @@ class TermoooDueto:
         while len(self.tentativasPrimeiraPalavra) < self.maxTentativas:
             print(f"Tentativa {len(self.tentativasPrimeiraPalavra) + 1} de {self.maxTentativas}")
             tentativa_input = input("Digite a palavra: ").strip().upper()
-            tentativa_chave = unidecode(tentativa_input)
 
             if len(tentativa_input) != 5:
                 print("A palavra deve ter exatamente 5 letras.\n")
                 continue
+
+            if not self.entrada_valida(tentativa_input):
+                print("Use apenas letras de A a Z, sem acentos, cedilha ou caracteres especiais.\n")
+                continue
+
+            tentativa_chave = unidecode(tentativa_input)
 
             if tentativa_chave not in self.word_map:
                 print("Palavra inválida. Tente novamente.\n")

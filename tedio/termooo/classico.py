@@ -1,9 +1,10 @@
 import random
+import unicodedata
 from colorama import Fore, Style, init
 from unidecode import unidecode
-import unicodedata
 
 init(autoreset=True)
+
 
 class TermoooClassico:
     def __init__(self):
@@ -31,36 +32,58 @@ class TermoooClassico:
 
         return list(word_map.values()), word_map
 
-    def remover_acentos(self,palavra):
+    def remover_acentos(self, palavra):
         return ''.join(
             c for c in unicodedata.normalize('NFD', palavra)
             if unicodedata.category(c) != 'Mn'
         )
 
-    def compararPalavra(self, palavraDigitada):
+    def entrada_valida(self, palavra):
+        return palavra.isalpha() and palavra.isascii()
+
+    def avaliar_palavra_dados(self, palavraDigitada, secretaTarget=None):
+        """
+        Retorna uma lista de dicts para o frontend (Streamlit).
+        Exemplo: [{"letra": "A", "estado": "green"}, ...]
+        Estados possíveis: "green", "yellow", "gray"
+        """
+        target = secretaTarget if secretaTarget else self.palavraSecreta
         palavraSemAcento = self.remover_acentos(palavraDigitada.upper())
-        segredoSemAcento = self.remover_acentos(self.palavraSecreta)
+        segredoSemAcento = self.remover_acentos(target)
         segredoTemp = list(segredoSemAcento)
 
-        resultado = [""] * len(palavraDigitada)
+        resultado = [{"letra": palavraDigitada[i].upper(), "estado": "gray"} for i in range(len(palavraDigitada))]
 
+        # 1ª passada: Verdes (letra certa no lugar certo)
         for i in range(len(palavraSemAcento)):
             if palavraSemAcento[i] == segredoSemAcento[i]:
-                resultado[i] = Fore.GREEN + palavraDigitada[i] + Style.RESET_ALL
-                segredoTemp[i] = None 
+                resultado[i]["estado"] = "green"
+                segredoTemp[i] = None
 
+        # 2ª passada: Amarelos (letra certa no lugar errado)
         for i in range(len(palavraSemAcento)):
-            if resultado[i]:
+            if resultado[i]["estado"] == "green":
                 continue
             if palavraSemAcento[i] in segredoTemp:
-                resultado[i] = Fore.YELLOW + palavraDigitada[i] + Style.RESET_ALL
-                # Remove a letra usada para não contar duplicado
+                resultado[i]["estado"] = "yellow"
                 segredoTemp[segredoTemp.index(palavraSemAcento[i])] = None
-            else:
-                # Letra não está na palavra (cinza)
-                resultado[i] = Fore.LIGHTBLACK_EX + palavraDigitada[i] + Style.RESET_ALL
 
-        return ''.join(resultado)
+        return resultado
+
+    def compararPalavra(self, palavraDigitada):
+        """Gera string formatada com Colorama para o Terminal."""
+        dados = self.avaliar_palavra_dados(palavraDigitada)
+        resultado_str = ""
+        for item in dados:
+            letra = item["letra"]
+            estado = item["estado"]
+            if estado == "green":
+                resultado_str += Fore.GREEN + letra + Style.RESET_ALL
+            elif estado == "yellow":
+                resultado_str += Fore.YELLOW + letra + Style.RESET_ALL
+            else:
+                resultado_str += Fore.LIGHTBLACK_EX + letra + Style.RESET_ALL
+        return resultado_str
 
     def jogar(self):
         print("========== Termooo Clássico ==========")
@@ -69,11 +92,16 @@ class TermoooClassico:
         while len(self.tentativas) < self.maxTentativas:
             print(f"Tentativa {len(self.tentativas)+1} de {self.maxTentativas}")
             palavraDigitada = input("Digite a palavra: ").strip().upper()
-            palavraChave = unidecode(palavraDigitada)
 
             if len(palavraDigitada) != len(self.palavraSecreta):
                 print(f"A palavra deve ter exatamente {len(self.palavraSecreta)} letras.\n")
                 continue
+
+            if not self.entrada_valida(palavraDigitada):
+                print("Use apenas letras de A a Z, sem acentos, cedilha ou caracteres especiais.\n")
+                continue
+
+            palavraChave = unidecode(palavraDigitada)
 
             if palavraChave not in self.word_map:
                 print("Palavra inválida. Tente novamente.\n")

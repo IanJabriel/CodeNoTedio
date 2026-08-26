@@ -2,14 +2,16 @@ from classico import TermoooClassico
 from dueto import TermoooDueto
 
 
-def main():
+def opcoes():
     print("Bem-vindo ao Termooo!")
     print("1 - Termooo\n2 - Dueto")
 
+def main():
+    # opcoes()
+
     jogarNovamente = True
-
-
     while jogarNovamente:
+        opcoes()
         try:
             opcao = int(input("Escolha o modo: "))
         except ValueError:
@@ -31,6 +33,7 @@ def main():
         if resposta != 1:
             jogarNovamente = False
             print("Obrigado por jogar!")
+        print("\n")
 
 if __name__ == "__main__":
     main()
